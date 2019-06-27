@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<style type="text/css">
+		body{
+			background-image: url(imgs/bg.jpg);
+
+		}
+
+		div.waku_box {
+			padding: 0.5em 1em;
+		    margin: 10px 0;
+		    color: #5d627b;
+		    background: white;
+		    border-top: solid 5px #5d627b;
+		    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.22);
+		}
+
+		div p {
+		    margin: 0; 
+		    padding: 0;
+		}
+
+		#info {
+			float: left;
+			width: calc(100% - 400px);
+			min-width: 400px;
+		}
+
+		#settings {
+			width: 300px;
+			float: left;
+			margin-left: 20px;
+		}
+
+		#textarea {
+			float: left;
+			width: calc(100% - 500px);
+			min-width: 300px;
+		}
+
+		#description {
+			padding-top: 30px;
+			font-size: small;
+		}
+
+		#summary {
+			float: left;
+			margin-left: 10px;
+			width: 400px;
+			min-width: 400px;
+		}
+
+		table{
+		  border-collapse: collapse;
+		  border-spacing: 0;
+		  width: 100%;
+		}
+
+		table tr{
+		  border-bottom: solid 1px #eee;
+		  cursor: pointer;
+		}
+
+		table tr:hover{
+		  background-color: #d4f0fd;
+		}
+
+		table th,table td{
+		  text-align: center;
+		  width: 20px;
+		  padding: 10px 0;
+		}
+
+		table td.icon{
+		  background-size: 40px;
+		  background-position: left 5px center;
+		  background-repeat: no-repeat;
+		  padding-left: 30px;
+		}
+
+		table td.icon.shikai{
+		  background-image: url(imgs/shikai.png)
+		}
+
+		table td.icon.player{
+		  background-image: url(imgs/player.png)
+		}
+
+	</style>
+</head>
+<body>
+
+	<div id="info" class="waku_box">
+		<h2>情報カスケード</h2>
+		<img src="imgs/gyouretsu.png" style="float:right; width: 200px; height: 167px; " />
+		<p>情報カスケードとは.....（いろいろ説明を書く）</p><br>
+		<p>前の人の行動を参考に動くプレイヤーたちの行動は、次第に司会者の伝える値とは関係なくどちらかに偏っていきます。</p>
+	</div>
+
+	<div id="settings" class="waku_box">
+		<h3>設定</h3>
+
+		確率<br>
+		<input type="range" value="0.8" min="0.00" max="1.00" step="0.01" oninput="p_change(this)">
+		<output id="output1">0.8</output>
+
+		<br><br>
+		真の値<br>
+		<form name="tval">
+			<input type="radio" name="true_value" value="0" checked="checked" onchange="kotae_change(this)">0 
+			<input type="radio" name="true_value" value="1" onchange="kotae_change(this)">1<br>
+		</form><br>
+
+		<input type="button" value="実行" onclick="cascade()">
+	</div>
+
+	<div id="textarea" class="waku_box">
+		<h3>実行結果</h3><br>
+		<table>
+		  <tr>
+		    <th></th>
+		    <th>1人目</th><th>2人目</th><th>3人目</th><th>4人目</th><th>5人目</th>
+		    <th>6人目</th><th>7人目</th><th>8人目</th><th>9人目</th><th>10人目</th>
+		  </tr>
+		  <tr>
+		    <td class="icon shikai">司会者</td>
+		    <td id="m_0"></td>
+		    <td id="m_1"></td><td id="m_2"></td><td id="m_3"></td>
+		    <td id="m_4"></td><td id="m_5"></td><td id="m_6"></td>
+		    <td id="m_7"></td><td id="m_8"></td><td id="m_9"></td>
+		  </tr>
+		  <tr>
+		    <td class="icon player">ﾌﾟﾚｲﾔｰ</td>
+		    <td id="p_0"></td>
+		    <td id="p_1"></td><td id="p_2"></td><td id="p_3"></td>
+		    <td id="p_4"></td><td id="p_5"></td><td id="p_6"></td>
+		    <td id="p_7"></td><td id="p_8"></td><td id="p_9"></td>
+		  </tr>
+		</table>
+		<div id="description">
+			・司会者<br>
+			司会者は、ある確率において正しい値を各プレイヤーへ伝えます。<br><br>
+			・プレイヤー<br>
+			プレイヤーは、これまでのプレイヤーの行動と司会者の伝えた値とを見比べて正しい値を予想します。これまでのプレイヤーの行動と司会者の伝えてくれた値を合わせたとき、票がちょうど半分ずつとなってどちらにも決められない場合はランダムに選びます。（ランダムに選択された場合は数字が太字になります。）
+		</div>
+	</div>
+
+	<div id="summary" class="waku_box">
+		<h3>統計</h3>
+		<svg id="graph_area" width="300" height="300"></svg>
+		<p id="summary_textarea">
+			0：<br>
+			1：<br>
+		</p>
+	</div>
+
+	<script src="https://d3js.org/d3.v5.min.js"></script>
+	
+	<script>
+		let textarea = document.getElementById('textarea');
+		let summaryarea = document.getElementById('summary_textarea');
+
+		let p = 0.8;
+		let kaisu = 100;
+		let kotae = 0;
+
+		let casc_zero = 0;
+		let casc_one = 0;
+		let random_choise = false;
+
+		function p_change(obj){
+			document.getElementById('output1').value=obj.value;
+			p = obj.value;
+			console.log(p);
+			summary_clear();
+		}
+
+		function kotae_change(obj){
+			console.log(obj.value);
+			kotae = Number(obj.value);
+			summary_clear();
+		}
+
+		function summary_update(result){
+			if (result == 1) casc_one++;
+			else casc_zero++;
+			let all = casc_one + casc_zero;
+			summaryarea.textContent = null;
+			// 小数点1桁までを出すために1000掛けて10割っている
+			let per_zero = Math.round(casc_zero / all * 1000) / 10
+			let per_one = Math.round(casc_one / all * 1000) / 10
+
+			data[0]['value'] = per_zero / 100;
+			data[1]['value'] = per_one / 100;
+
+			summaryarea.insertAdjacentHTML('beforeend',`0： ${casc_zero} / ${all} (${per_zero}%)<br>`);
+			summaryarea.insertAdjacentHTML('beforeend',`1： ${casc_one} / ${all} (${per_one}%)<br>`);
+
+			svg.selectAll("rect")
+			   .data(data)
+			   .transition()
+			   .duration(500)
+			   .attr("y", function(d) { return yScale(d.value); })
+			   .attr("height", function(d) { return height - padding - yScale(d.value); })
+
+		}
+
+		function summary_clear(){
+			casc_one = 0;
+			casc_zero = 0;
+			summaryarea.textContent = null;
+		}
+
+		function cascade(){
+
+			goukei = 0;
+			for(let i=0; i < kaisu; i++){
+				random_choise = false;
+				master_lie = Math.random() <= p ? 0 : 1;
+				master = kotae ^ master_lie;
+
+				judge = (goukei + master) / (i + 1);
+				if (judge > 0.5) select = 1;
+				else if (judge == 0.5) {
+					select = Math.floor(Math.random() * 2);
+					random_choise = true;
+				}
+				else select = 0;
+
+				goukei += select;
+
+
+				// 1～10回目なら描画処理を行う
+				if (i < 10){
+					document.getElementById("m_" + i).textContent = String(master);
+					if (random_choise){
+						document.getElementById("p_" + i).innerHTML = '<b>' + String(select) + '</b>';
+					}
+					else document.getElementById("p_" + i).textContent = String(select);
+				}
+			}
+
+			if (goukei > kaisu / 2) summary_update(1);
+			else summary_update(0);
+
+		}
+
+		// --- 以下グラフについて ---
+
+		let data = [
+			{"name": "0", "value": 0},
+			{"name": "1", "value": 0}
+		]
+		let svg = d3.select("#graph_area");
+		let height = 300;
+		let width = 300;
+		let padding = 30;
+
+		// 軸スケール
+		let xScale = d3.scaleBand()
+				  .rangeRound([padding, width - padding])
+				  .padding(0.1)
+				  .domain(data.map(function(d) { return d.name }));
+
+		let yScale = d3.scaleLinear()
+				  .domain([0,1])
+				  .rangeRound([height - padding, padding]);
+
+		// 軸を描画
+		svg.append("g")
+		   .attr("transform", `translate( 0, ${height - padding} )`)
+		   .call(d3.axisBottom(xScale));
+
+		svg.append("g")
+		   .attr("transform", `translate( ${padding}, 0 )`)
+		   .call(d3.axisLeft(yScale));
+
+
+		// データプロット
+		svg.append("g")
+		   .selectAll("rect")
+		   .data(data)
+		   .enter()
+		   .append("rect")
+		   .attr("x", function(d) { return xScale(d.name); }) //scale機能便利だなあ
+		   .attr("y", function(d) { return yScale(d.value); })
+		   .attr("width", xScale.bandwidth())
+		   .attr("height", function(d) { return height - padding - yScale(d.value); })
+		   .attr("fill", "red");
+
+	</script>
+
+</body>
+</html>
